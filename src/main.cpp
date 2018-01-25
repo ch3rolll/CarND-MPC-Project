@@ -99,7 +99,23 @@ int main() {
           *
           */
 
-          vector<double>  result= mpc.solve({px, py, psi, v, 0, 0});
+          Eigen::VectorXd Ptsx = Eigen::Map<Eigen::VectorXd, Eigen::Unaligned>(ptsx.data(), ptsx.size());
+          Eigen::VectorXd Ptsy = Eigen::Map<Eigen::VectorXd, Eigen::Unaligned>(ptsy.data(), ptsy.size());
+
+          auto coeffs = polyfit(Ptsx, Ptsy, 1);
+
+          double cte = polyeval(coeffs, px) - py;
+          // TODO: calculate the orientation error
+          double epsi = psi - atan(coeffs[1]);
+
+          // auto cte = coeffs[0];
+          // auto epsi = -atan(coeffs[1]);
+
+          // state in vehicle coordinates: x,y and orientation are always zero
+          Eigen::VectorXd state(6);
+          state << 0, 0, 0, v, cte, epsi;
+
+          vector<double>  result= mpc.Solve(state, coeffs);
 
           double steer_value = result[0];
           double throttle_value = result[1];

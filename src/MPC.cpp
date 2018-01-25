@@ -31,6 +31,7 @@ const int cte_start = 4 * N;
 const int epsi_start = 5 * N;
 const int delta_start = 6 * N;
 const int a_start = 6 * N + (N - 1);
+const double ref_v = 0.5;
 
 class FG_eval {
  public:
@@ -121,7 +122,7 @@ MPC::~MPC() {}
 
 vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   bool ok = true;
-  size_t i;
+  //size_t i;
   typedef CPPAD_TESTVECTOR(double) Dvector;
 
   // TODO: Set the number of model variables (includes both states and inputs).
@@ -132,7 +133,7 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   // 4 * 25 + 2 * 24
   size_t n_vars = 6 * N + 2 * (N - 1);
   // TODO: Set the number of constraints
-  size_t n_constraints = 0;
+  size_t n_constraints = N * 6;
 
   // Initial value of the independent variables.
   // SHOULD BE 0 besides initial state.
