@@ -98,54 +98,72 @@ int main() {
           * Both are in between [-1, 1].
           *
           */
+          // create Eigen vectors from standard vector
+          Eigen::VectorXd ptsxv = Eigen::VectorXd::Map(ptsx.data(), ptsx.size());
+          Eigen::VectorXd ptsyv = Eigen::VectorXd::Map(ptsy.data(), ptsy.size());
 
-          Eigen::VectorXd Ptsx = Eigen::Map<Eigen::VectorXd, Eigen::Unaligned>(ptsx.data(), ptsx.size());
-          Eigen::VectorXd Ptsy = Eigen::Map<Eigen::VectorXd, Eigen::Unaligned>(ptsy.data(), ptsy.size());
+          // convert to vehicle space
+          for (int i = 0; i < ptsxv.size(); i++) {
+            double x = ptsxv[i] - px;
+            double y = ptsyv[i] - py;
+            ptsxv[i] = x * cos(psi) + y * sin(psi);
+            ptsyv[i] = - x * sin(psi) + y * cos(psi);
+          }
 
-          auto coeffs = polyfit(Ptsx, Ptsy, 1);
+          // Calculate the coeffs in vehicle coord
+          auto coeffs = polyfit(ptsxv, ptsyv, 3);
 
-          double cte = polyeval(coeffs, px) - py;
-          // TODO: calculate the orientation error
-          double epsi = psi - atan(coeffs[1]);
+          // calculate the cross track errr
+          double cte = -polyeval(coeffs, 0) ;
 
-          // auto cte = coeffs[0];
-          // auto epsi = -atan(coeffs[1]);
+          // calculate the orientation error
+          double epsi = -atan(coeffs[1]);
+          cout << "cte " << cte <<" epsi " << epsi << endl;
 
-          // state in vehicle coordinates: x,y and orientation are always zero
+          // create current state vector and solve
           Eigen::VectorXd state(6);
+
           state << 0, 0, 0, v, cte, epsi;
+          std::vector<double> x1 = mpc.Solve(state, coeffs);
 
-          vector<double>  result= mpc.Solve(state, coeffs);
+          double steer_value = x1[0]/ deg2rad(25) ; // normalise - simulator has steering input [-1,1]
+          double throttle_value = x1[1];
 
-          double steer_value = result[0];
-          double throttle_value = result[1];
+          double N = x1[2];
 
-          json msgJson;
-          // NOTE: Remember to divide by deg2rad(25) before you send the steering value back.
-          // Otherwise the values will be in between [-deg2rad(25), deg2rad(25] instead of [-1, 1].
-          msgJson["steering_angle"] = steer_value;
-          msgJson["throttle"] = throttle_value;
+          //Display the MPC predicted trajectory
+          std::vector<double> mpc_x_vals;
+          std::vector<double> mpc_y_vals;
 
-          //Display the MPC predicted trajectory 
-          vector<double> mpc_x_vals;
-          vector<double> mpc_y_vals;
-
-          //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
-          // the points in the simulator are connected by a Green line
-
-          msgJson["mpc_x"] = mpc_x_vals;
-          msgJson["mpc_y"] = mpc_y_vals;
+          for (int i = 0; i < N-1; i++) {
+            mpc_x_vals.push_back(x1[3 + i]);
+            mpc_y_vals.push_back(x1[3 + i + N]);
+          }
 
           //Display the waypoints/reference line
-          vector<double> next_x_vals;
-          vector<double> next_y_vals;
+          std::vector<double> next_x_vals;
+          std::vector<double> next_y_vals;
+          next_x_vals.resize(ptsxv.size());
+          next_y_vals.resize(ptsyv.size());
+
+          for (int i = 0; i < ptsxv.size(); i++) {
+            next_x_vals[i] = ptsxv[i];
+            next_y_vals[i] = ptsyv[i];
+          }
+
+          json msgJson;
+          msgJson["steering_angle"] = -steer_value;
+          msgJson["throttle"] = throttle_value;
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
-          // the points in the simulator are connected by a Yellow line
-
+           // the points in the simulator are connected by a Yellow line
           msgJson["next_x"] = next_x_vals;
           msgJson["next_y"] = next_y_vals;
 
+          //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
+          // the points in the simulator are connected by a Green line
+          msgJson["mpc_x"] = mpc_x_vals;
+          msgJson["mpc_y"] = mpc_y_vals;
 
           auto msg = "42[\"steer\"," + msgJson.dump() + "]";
           std::cout << msg << std::endl;
