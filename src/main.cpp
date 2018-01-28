@@ -11,6 +11,8 @@
 
 // for convenience
 using json = nlohmann::json;
+const double Lf = 2.67;
+const double dt = 0.08;// time interval
 
 // For converting back and forth between radians and degrees.
 constexpr double pi() { return M_PI; }
@@ -91,6 +93,10 @@ int main() {
           double py = j[1]["y"];
           double psi = j[1]["psi"];
           double v = j[1]["speed"];
+          v *= 0.447;// mph to m/s
+          double throttle = j[1]["throttle"];
+          //  change of sign because turning left is negative sign in simulator but positive yaw for MPC
+          double delta = j[1]["steering_angle"]; 
 
           /*
           * TODO: Calculate steering angle and throttle using MPC.
@@ -118,12 +124,21 @@ int main() {
 
           // calculate the orientation error
           double epsi = -atan(coeffs[1]);
-          cout << "cte " << cte <<" epsi " << epsi << endl;
+
+
+          // Kinematic model is used to predict vehicle state at the actual
+          // moment of control (current time + delay dt)
+          const double px_d = v * dt;
+          const double py_d = 0;
+          const double psi_d = - v * delta * dt / Lf;
+          const double v_d = v + throttle * dt;
+          const double cte_d = cte + v * sin(epsi) * dt;
+          const double epsi_d = epsi + psi_d; 
 
           // create current state vector and solve
           Eigen::VectorXd state(6);
 
-          state << 0, 0, 0, v, cte, epsi;
+          state << px_d, py_d, psi_d, v_d, cte_d, epsi_d;
           std::vector<double> x1 = mpc.Solve(state, coeffs);
 
           double steer_value = x1[0]/ deg2rad(25) ; // normalise - simulator has steering input [-1,1]
@@ -176,7 +191,7 @@ int main() {
           //
           // NOTE: REMEMBER TO SET THIS TO 100 MILLISECONDS BEFORE
           // SUBMITTING.
-          this_thread::sleep_for(chrono::milliseconds(100));
+          this_thread::sleep_for(chrono::milliseconds(int(dt) * 1000));
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
         }
       } else {
