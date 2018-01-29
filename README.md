@@ -47,7 +47,7 @@ The vehicle model used in this project is a kinematic bicycle model. It is under
  
  Symbol|Expalaination     
  ---   | --- 
- x ,y  | position of the car in a global coordinate system                      
+ x, y  | position of the car in a global coordinate system                      
  psi   |heading value                                                           
  v     | speed of the vehile                                                     
  cte   | cross-track error                                                      
